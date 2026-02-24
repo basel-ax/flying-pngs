@@ -5,14 +5,23 @@ const STORAGE_KEYS = {
   width: "flying_width",
   height: "flying_height",
   autoload: "flying_autoload",
+  randomizeMode: "flying_randomize_mode",
+  randomizeN: "flying_randomize_n",
 };
 
 let speed = DEFAULTS.speed;
+let baseSpeed = DEFAULTS.speed; // tracks user-set speed, unaffected by randomize slowdown
 let windows = [];
 let windowsNum = DEFAULTS.count;
 let imgs = [];
 let paused = false;
 let config = { width: DEFAULTS.width, height: DEFAULTS.height };
+
+// Randomize mode state
+let randomizeMode = false;
+let randomizeN = 10; // max seconds for random interval
+let isSlowed = false; // whether we're currently in the slowed phase
+let nextRandomizeTime = 0; // millis() timestamp when next toggle fires
 
 // No sound usage: removed sound and error.mp3 dependency
 
@@ -36,7 +45,9 @@ const ASSET_FILES = [
 
 function preload() {
   for (let i = 0; i < ASSET_FILES.length; i++) {
-    imgs[i] = loadImage("png/" + ASSET_FILES[i]);
+    imgs[i] = loadImage("png/" + ASSET_FILES[i], null, () => {
+      console.warn("[flying-pngs] Failed to load asset: " + ASSET_FILES[i]);
+    });
   }
 }
 
@@ -67,7 +78,6 @@ class Window {
     let r = map(this.z, 0, width / 2, 26, 4);
 
     image(this.img, sx, sy, r, r);
-    // tint(this.color);
 
     this.pz = this.z;
   }
@@ -80,13 +90,24 @@ function setup() {
     const shouldAutoload = autoloadRaw === null ? true : autoloadRaw === "true";
     if (shouldAutoload) {
       const savedSpeed = parseInt(localStorage.getItem(STORAGE_KEYS.speed), 10);
-      if (!Number.isNaN(savedSpeed)) speed = savedSpeed;
+      if (!Number.isNaN(savedSpeed)) {
+        speed = savedSpeed;
+        baseSpeed = savedSpeed;
+      }
       const savedCount = parseInt(localStorage.getItem(STORAGE_KEYS.count), 10);
       if (!Number.isNaN(savedCount)) windowsNum = savedCount;
       const savedW = parseInt(localStorage.getItem(STORAGE_KEYS.width), 10);
       if (!Number.isNaN(savedW)) config.width = savedW;
       const savedH = parseInt(localStorage.getItem(STORAGE_KEYS.height), 10);
       if (!Number.isNaN(savedH)) config.height = savedH;
+
+      // Randomize mode persistence
+      const savedRandMode = localStorage.getItem(STORAGE_KEYS.randomizeMode);
+      if (savedRandMode !== null) randomizeMode = savedRandMode === "true";
+      const savedRandN = parseFloat(
+        localStorage.getItem(STORAGE_KEYS.randomizeN),
+      );
+      if (!Number.isNaN(savedRandN) && savedRandN > 0) randomizeN = savedRandN;
     }
   } catch (e) {
     // ignore storage errors
@@ -98,13 +119,20 @@ function setup() {
     windows[i] = new Window();
   }
 
-  // Expose agent setter wrappers
+  // Schedule the first randomize event
+  nextRandomizeTime = millis() + Math.random() * randomizeN * 1000;
+
+  // ── Agent setter wrappers ──────────────────────────────────────────────────
+
   window.AGENT_setSpeed = function (n) {
     if (typeof n === "number" && isFinite(n)) {
-      speed = n;
+      baseSpeed = n;
+      // Only apply directly to speed when not currently slowed
+      speed = isSlowed && randomizeMode ? n / 5 : n;
       localStorage.setItem(STORAGE_KEYS.speed, String(n));
     }
   };
+
   window.AGENT_setCount = function (n) {
     if (typeof n === "number" && isFinite(n)) {
       windowsNum = n;
@@ -117,6 +145,7 @@ function setup() {
       }
     }
   };
+
   window.AGENT_setCanvasSize = function (w, h) {
     if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
       config.width = w;
@@ -126,11 +155,57 @@ function setup() {
       resizeCanvas(w, h);
     }
   };
+
+  /**
+   * Enable or disable randomize mode.
+   * @param {boolean} enabled
+   */
+  window.AGENT_setRandomizeMode = function (enabled) {
+    randomizeMode = !!enabled;
+    localStorage.setItem(STORAGE_KEYS.randomizeMode, String(randomizeMode));
+
+    if (randomizeMode) {
+      // Start fresh: not slowed, schedule first event
+      isSlowed = false;
+      speed = baseSpeed;
+      nextRandomizeTime = millis() + Math.random() * randomizeN * 1000;
+    } else {
+      // Restore full speed when mode is turned off
+      isSlowed = false;
+      speed = baseSpeed;
+    }
+  };
+
+  /**
+   * Set the maximum interval (in seconds) for the randomize mode timer.
+   * @param {number} n  positive number of seconds
+   */
+  window.AGENT_setRandomizeN = function (n) {
+    if (typeof n === "number" && isFinite(n) && n > 0) {
+      randomizeN = n;
+      localStorage.setItem(STORAGE_KEYS.randomizeN, String(n));
+      // Re-schedule so the new N takes effect immediately for the next tick
+      nextRandomizeTime = millis() + Math.random() * randomizeN * 1000;
+    }
+  };
 }
 
 function draw() {
   background(0);
   translate(width / 2, height / 2);
+
+  // ── Randomize mode tick ───────────────────────────────────────────────────
+  if (randomizeMode && !paused) {
+    const now = millis();
+    if (now >= nextRandomizeTime) {
+      // Toggle slow/normal
+      isSlowed = !isSlowed;
+      speed = isSlowed ? baseSpeed / 5 : baseSpeed;
+      // Schedule next toggle at a new random interval within [0, N] seconds
+      nextRandomizeTime = now + Math.random() * randomizeN * 1000;
+    }
+  }
+
   if (!paused) {
     for (let i = 0; i < windows.length; i++) {
       windows[i].update();
@@ -147,6 +222,16 @@ function draw() {
     textSize(14);
     textAlign(RIGHT, BOTTOM);
     text("PAUSED (P)", width / 2 - 8, height / 2 - 8);
+    pop();
+  }
+
+  // ── Randomize mode slow indicator ────────────────────────────────────────
+  if (randomizeMode && isSlowed && !paused) {
+    push();
+    fill(255, 200, 0);
+    textSize(13);
+    textAlign(LEFT, BOTTOM);
+    text("SLOW ×1/5", -width / 2 + 8, height / 2 - 8);
     pop();
   }
 }

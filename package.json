@@ -1,0 +1,11 @@
+{
+  "name": "flying-pngs",
+  "version": "1.0.0",
+  "description": "Flying PNGs screensaver-style animation built with p5.js",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve . --no-clipboard"
+  },
+  "keywords": ["p5js", "animation", "screensaver"],
+  "license": "MIT"
+}
