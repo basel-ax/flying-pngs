@@ -6,7 +6,7 @@ A Go desktop application recreation of the classic flying Windows screensaver wi
 
 ```bash
 git clone https://github.com/basel-ax/flying-pngs
-cd flying-pngs/flying-pngs-go
+cd flying-pngs
 
 # Initialize go module (only needed first time)
 go mod init github.com/basel-ax/flying-pngs
@@ -55,18 +55,17 @@ go build -o flying-pngs ./cmd/flying-pngs
 
 ```
 flying-pngs/
-├── flying-pngs-go/                 # Go desktop application
-│   ├── cmd/flying-pngs/main.go     # Application entry point
-│   ├── internal/                   # Internal packages
-│   │   ├── config/                 # Configuration management
-│   │   ├── ui/                     # Game interface (Ebiten)
-│   │   ├── animation/              # Animation logic (Ebiten)
-│   │   └── assets/                 # PNG asset loading
-│   └── go.mod                      # Go module definition
-├── png/                            # PNG sprites (shared with web version)
-├── tmp/                            # Original web version (archived)
-├── README.md                       # Project documentation
-└── AGENTS.md                       # Agent-facing instructions
+├── cmd/flying-pngs/main.go     # Application entry point
+├── internal/                   # Internal packages
+│   ├── config/                 # Configuration management
+│   ├── ui/                     # Game interface (Ebiten)
+│   ├── animation/              # Animation logic (Ebiten)
+│   └── assets/                 # PNG asset loading
+├── go.mod                      # Go module definition
+├── png/                        # PNG sprites (shared with web version)
+├── tmp/                        # Original web version (archived)
+├── README.md                   # Project documentation
+└── AGENTS.md                   # Agent-facing instructions
 ```
 
 ## Local Development
@@ -79,7 +78,7 @@ flying-pngs/
 ### Build and Run
 
 ```bash
-cd flying-pngs-go
+cd flying-pngs
 go run ./cmd/flying-pngs
 ```
 
@@ -115,7 +114,6 @@ When enabled, a timer fires at random intervals (0–N seconds), toggling animat
 ## Building for Distribution
 
 ```bash
-cd flying-pngs-go
 GOOS=linux GOARCH=amd64 go build -o flying-pngs-linux ./cmd/flying-pngs
 GOOS=windows GOARCH=amd64 go build -o flying-pngs-windows.exe ./cmd/flying-pngs
 GOOS=darwin GOARCH=amd64 go build -o flying-pngs-macos ./cmd/flying-pngs
