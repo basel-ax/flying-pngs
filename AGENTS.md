@@ -5,7 +5,7 @@ This repository contains a Go desktop application that renders a Windows-logo "f
 ## Project overview
 
 - Location: project root
-- Entry point: `cmd/flying-pngs/main.go` (Go application using Ebiten for rendering)
+- Entry point: `cmd/main.go` (Go application using Ebiten for rendering)
 - Visual: 15 PNG assets loaded from the `png/` folder (same assets as the web version)
 - Audio: disabled (no sound usage)
 - Tech stack: Go, Ebiten (game engine/rendering)
@@ -15,11 +15,11 @@ This repository contains a Go desktop application that renders a Windows-logo "f
 - Build and run (requires X11 display):
   ```
   cd flying-pngs
-  go run ./cmd/flying-pngs
+  go run ./cmd
   ```
 - Or build first:
   ```
-  go build -o flying-pngs ./cmd/flying-pngs
+  go build -o flying-pngs ./cmd
   ./flying-pngs
   ```
 - Configuration is loaded from config file or uses defaults:
@@ -33,7 +33,7 @@ This repository contains a Go desktop application that renders a Windows-logo "f
 
 ## Key files and roles
 
-- `cmd/flying-pngs/main.go` — application entry point; creates game instance
+- `cmd/main.go` — application entry point; creates game instance
 - `internal/config/config.go` — configuration management (loading, saving, defaults, validation)
 - `internal/ui/ui.go` — game interface implementation (Ebiten)
 - `internal/animation/animation.go` — animation logic using Ebiten
@@ -48,7 +48,7 @@ Agents should aim to improve the project with safe, incremental changes that pre
 ## Build and test
 
 ```bash
-go build -o flying-pngs ./cmd/flying-pngs
+go build -o flying-pngs ./cmd
 go test ./internal/config/...
 ```
 

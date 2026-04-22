@@ -9,16 +9,15 @@ git clone https://github.com/basel-ax/flying-pngs
 cd flying-pngs
 
 # Initialize go module (only needed first time)
-go mod init github.com/basel-ax/flying-pngs
 go mod tidy
 
 # Run the application
-go run ./cmd/flying-pngs
+go run ./cmd
 ```
 
 **Or build:**
 ```bash
-go build -o flying-pngs ./cmd/flying-pngs
+go build -o flying-pngs ./cmd
 ./flying-pngs
 ```
 
@@ -79,12 +78,12 @@ flying-pngs/
 
 ```bash
 cd flying-pngs
-go run ./cmd/flying-pngs
+go run ./cmd
 ```
 
 Or build first:
 ```bash
-go build -o flying-pngs ./cmd/flying-pngs
+go build -o flying-pngs ./cmd
 ./flying-pngs
 ```
 
@@ -114,9 +113,9 @@ When enabled, a timer fires at random intervals (0–N seconds), toggling animat
 ## Building for Distribution
 
 ```bash
-GOOS=linux GOARCH=amd64 go build -o flying-pngs-linux ./cmd/flying-pngs
-GOOS=windows GOARCH=amd64 go build -o flying-pngs-windows.exe ./cmd/flying-pngs
-GOOS=darwin GOARCH=amd64 go build -o flying-pngs-macos ./cmd/flying-pngs
+GOOS=linux GOARCH=amd64 go build -o flying-pngs-linux ./cmd
+GOOS=windows GOARCH=amd64 go build -o flying-pngs-windows.exe ./cmd
+GOOS=darwin GOARCH=amd64 go build -o flying-pngs-macos ./cmd
 ```
 
 ## Contributing
