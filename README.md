@@ -1,6 +1,40 @@
 # Flying PNGs Screensaver (Go Desktop Version)
 
-A Go desktop application recreation of the classic flying Windows screensaver, now driven by a collection of PNG assets (religious and mystical iconography) with configurable animation behavior.
+A Go desktop application recreation of the classic flying Windows screensaver with configurable animation behavior.
+
+## Quick Start
+
+```bash
+# Clone and run
+git clone https://github.com/basel-ax/flying-pngs
+cd flying-pngs/flying-pngs-go
+go run ./cmd/flying-pngs
+```
+
+**Or build first:**
+```bash
+go build -o flying-pngs ./cmd/flying-pngs
+./flying-pngs
+```
+
+**Controls:** Press `P` to pause/resume
+
+---
+
+## Table of Contents
+
+1. [Features](#features)
+2. [Repository Layout](#repository-layout)
+3. [Local Development](#local-development)
+   - [Prerequisites](#prerequisites)
+   - [Build and Run](#build-and-run)
+4. [Configuration](#configuration)
+5. [Keyboard Shortcuts](#keyboard-shortcuts)
+6. [Randomize Mode](#randomize-mode)
+7. [Building for Distribution](#building-for-distribution)
+8. [Contributing](#contributing)
+
+---
 
 ## Features
 
@@ -9,10 +43,10 @@ A Go desktop application recreation of the classic flying Windows screensaver, n
 - Adjustable particle speed, count, and canvas dimensions via config file or defaults
 - Configuration persistence with automatic loading of last session
 - Keyboard pause/resume shortcut (`P`)
-- **Randomize Mode** — automatically toggles animation speed to ×1/5 at random intervals (0–N seconds), with an on-screen indicator and full persistence support
+- **Randomize Mode** — automatically toggles animation speed to ×1/5 at random intervals (0–N seconds)
 - Cross-platform support (Linux, Windows, macOS)
 
-## Repository layout
+## Repository Layout
 
 ```
 flying-pngs/
@@ -24,54 +58,35 @@ flying-pngs/
 │   │   ├── animation/              # Animation logic (Ebiten)
 │   │   └── assets/                 # PNG asset loading
 │   └── go.mod                      # Go module definition
-├── png/                            # PNG sprites used by the animation (shared with web version)
-├── tmp/                            # Original web version files (HTML/JS)
-│   ├── index.html
-│   ├── sketch.js
-│   ├── agent-controls.js
-│   ├── package.json
-│   └── serve.json
-├── README.md                       # Project documentation (this file)
-└── AGENTS.md                       # Agent-facing instructions for coding assistants
+├── png/                            # PNG sprites (shared with web version)
+├── tmp/                            # Original web version (archived)
+├── README.md                       # Project documentation
+└── AGENTS.md                       # Agent-facing instructions
 ```
 
-## Local development
+## Local Development
 
 ### Prerequisites
 
 - Go 1.24+
-- X11 development libraries (on Linux): libx11-dev, libxrandr-dev, libxcursor-dev, libxinerama-dev, libxi-dev
+- X11 development libraries (Linux): `libx11-dev libxrandr-dev libxcursor-dev libxinerama-dev libxi-dev`
 
-### Build and run
+### Build and Run
 
 ```bash
-# Navigate to the Go application directory
 cd flying-pngs-go
-
-# Build and run directly
 go run ./cmd/flying-pngs
+```
 
-# Or build first, then run
+Or build first:
+```bash
 go build -o flying-pngs ./cmd/flying-pngs
 ./flying-pngs
 ```
 
-The application will first show a settings window where you can configure:
-- Number of windows (50-1000)
-- Speed (1.0-20.0)
-- Width and height (with valid ranges)
-- Background type (black, white, transparent)
-- Randomize mode (with max interval setting)
-- Auto-load last session
-
-Click "Start" to begin the animation.
-Press 'P' to pause/resume the animation.
-
 ## Configuration
 
-All settings are automatically saved to `~/.flying-pngs/config.json` and restored on subsequent launches when auto-load is enabled.
-
-### Settings ranges
+Settings are saved to `~/.flying-pngs/config.json` and restored on launch.
 
 | Setting | Range | Default |
 |---------|-------|---------|
@@ -86,15 +101,13 @@ All settings are automatically saved to `~/.flying-pngs/config.json` and restore
 
 ## Keyboard Shortcuts
 
-- `P`: Pause/resume the animation
+- `P` — Pause/resume animation
 
 ## Randomize Mode
 
-When enabled via the settings window, a timer fires at a random interval between 0 and N seconds. On each tick the animation speed toggles between normal and ×1/5 (slow), then a new random interval is scheduled. A yellow "SLOW ×1/5" indicator is shown in the bottom-left corner of the canvas during slow phases. The mode state and N value are persisted with the rest of the session when auto-load is on.
+When enabled, a timer fires at random intervals (0–N seconds), toggling animation speed between normal and ×1/5. A "SLOW ×1/5" indicator appears during slow phases.
 
 ## Building for Distribution
-
-To create a binary for your platform:
 
 ```bash
 cd flying-pngs-go
@@ -105,9 +118,8 @@ GOOS=darwin GOARCH=amd64 go build -o flying-pngs-macos ./cmd/flying-pngs
 
 ## Contributing
 
-- Keep changes focused and maintainable.
-- Update `AGENTS.md` with any new workflows or instructions useful for AI coding assistants.
-- If you add assets, place them in `flying-pngs/png/` (shared with web version).
-- Prefer small, incremental changes with clear intent.
+- Keep changes focused and maintainable
+- Update `AGENTS.md` with new workflows
+- Place new assets in `flying-pngs/png/`
 
-## Enjoy the retro vibes!
+Enjoy the retro vibes!
