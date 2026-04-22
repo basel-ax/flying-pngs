@@ -8,8 +8,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 
-	"flying-pngs-go/internal/assets"
-	"flying-pngs-go/internal/config"
+	"github.com/basel-ax/flying-pngs/internal/assets"
+	"github.com/basel-ax/flying-pngs/internal/config"
 )
 
 // AnimationCanvas holds the state for the flying PNGs animation

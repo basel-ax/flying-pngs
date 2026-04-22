@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"flying-pngs-go/internal/animation"
-	"flying-pngs-go/internal/config"
+	"github.com/basel-ax/flying-pngs/internal/animation"
+	"github.com/basel-ax/flying-pngs/internal/config"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

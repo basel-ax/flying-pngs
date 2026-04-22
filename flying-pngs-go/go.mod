@@ -1,11 +1,8 @@
-module flying-pngs-go
+module github.com/basel-ax/flying-pngs
 
 go 1.24.4
 
-require (
-	fyne.io/fyne/v2 v2.7.3
-	github.com/hajimehoshi/ebiten/v2 v2.8.1
-)
+require github.com/hajimehoshi/ebiten/v2 v2.8.1
 
 require (
 	github.com/ebitengine/gomobile v0.0.0-20240911145611-4856209ac325 // indirect

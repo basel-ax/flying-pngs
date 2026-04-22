@@ -1,8 +1,8 @@
 package main
 
 import (
-	"flying-pngs-go/internal/config"
-	"flying-pngs-go/internal/ui"
+	"github.com/basel-ax/flying-pngs/internal/config"
+	"github.com/basel-ax/flying-pngs/internal/ui"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

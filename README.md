@@ -2,16 +2,21 @@
 
 A Go desktop application recreation of the classic flying Windows screensaver with configurable animation behavior.
 
-## Quick Start
+## First Run
 
 ```bash
-# Clone and run
 git clone https://github.com/basel-ax/flying-pngs
 cd flying-pngs/flying-pngs-go
+
+# Initialize go module (only needed first time)
+go mod init github.com/basel-ax/flying-pngs
+go mod tidy
+
+# Run the application
 go run ./cmd/flying-pngs
 ```
 
-**Or build first:**
+**Or build:**
 ```bash
 go build -o flying-pngs ./cmd/flying-pngs
 ./flying-pngs
