@@ -395,6 +395,9 @@ func (w *Window) Draw(screen *ebiten.Image, whiteMode bool, screenWidth, screenH
 	opts.GeoM.Scale(imgScale, imgScale)
 	opts.GeoM.Translate(sx-targetSize/2, sy-targetSize/2)
 
+	// Use linear filtering for smooth scaling (especially important for SVGs)
+	opts.Filter = ebiten.FilterLinear
+
 	opts.ColorM.Scale(
 		float64(clr[0])/255,
 		float64(clr[1])/255,

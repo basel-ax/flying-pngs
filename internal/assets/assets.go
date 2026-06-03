@@ -56,7 +56,9 @@ func LoadPNGAssets(basePath, collectionName string) ([]*ebitenimg.Image, error) 
 
 // LoadSVGAssets loads all SVG assets from the svg_collection/<collectionName>/ directory
 // relative to basePath and converts them to Ebiten images.
-// SVGs are rasterized to the specified baseHeight in pixels.
+// SVGs are rasterized at a high master resolution for quality; the baseHeight parameter
+// controls the target display size, while the actual rasterization uses masterSize
+// to ensure smooth lines at any scale.
 func LoadSVGAssets(basePath, collectionName string, baseHeight float64) ([]*ebitenimg.Image, error) {
 	var results []*ebitenimg.Image
 	pattern := filepath.Join(basePath, "svg_collection", collectionName, "*.svg")
@@ -73,8 +75,15 @@ func LoadSVGAssets(basePath, collectionName string, baseHeight float64) ([]*ebit
 		return nil, fmt.Errorf("no SVG files found matching %q (abs: %s)", pattern, absPath)
 	}
 
+	// Rasterize at a high resolution for quality. The baseHeight controls display size,
+	// but we render much larger so Ebiten scales down (preserving smooth vector lines).
+	masterSize := baseHeight * 8 // 8x oversampling for crisp rendering
+	if masterSize < 512 {
+		masterSize = 512
+	}
+
 	for _, p := range files {
-		img, err := loadSVGAsImage(p, baseHeight)
+		img, err := loadSVGAsImage(p, masterSize)
 		if err != nil {
 			log.Printf("[WARN] Cannot load SVG %s: %v", p, err)
 			continue
@@ -82,7 +91,7 @@ func LoadSVGAssets(basePath, collectionName string, baseHeight float64) ([]*ebit
 		results = append(results, img)
 	}
 
-	log.Printf("[INFO] SVG asset loading complete: %d/%d images loaded", len(results), len(files))
+	log.Printf("[INFO] SVG asset loading complete: %d/%d images loaded (master size: %.0fpx)", len(results), len(files), masterSize)
 	return results, nil
 }
 
