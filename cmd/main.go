@@ -23,7 +23,10 @@ func main() {
 	ebiten.SetWindowTitle("Flying PNGs — Settings")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
-	if err := ebiten.RunGame(game); err != nil {
+	opts := &ebiten.RunGameOptions{
+		ScreenTransparent: cfg.BackgroundType == "transparent",
+	}
+	if err := ebiten.RunGameWithOptions(game, opts); err != nil {
 		log.Printf("[ERROR] Game exited: %v", err)
 		os.Exit(1)
 	}

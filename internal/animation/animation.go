@@ -108,7 +108,7 @@ func NewAnimationCanvas(cfg *config.Config) *AnimationCanvas {
 		speed:          cfg.Speed,
 		baseSpeed:      cfg.Speed,
 		windowsNum:     cfg.WindowCount,
-		whiteMode:      false,
+		whiteMode:      cfg.BackgroundType == "white",
 		randomizeMode:  cfg.RandomizeMode,
 		randomizeN:     float64(cfg.RandomizeMaxN),
 		tintColors:     tintColors,
@@ -254,9 +254,12 @@ func (ac *AnimationCanvas) Update() {
 // Draw draws the animation to the screen
 func (ac *AnimationCanvas) Draw(screen *ebiten.Image) {
 	// Clear screen with appropriate background color
-	if ac.whiteMode {
+	switch ac.cfg.BackgroundType {
+	case "white":
 		screen.Fill(&color.RGBA{255, 255, 255, 255})
-	} else {
+	case "transparent":
+		screen.Fill(&color.RGBA{0, 0, 0, 0})
+	default: // "black"
 		screen.Fill(&color.RGBA{0, 0, 0, 255})
 	}
 
@@ -336,8 +339,10 @@ func (w *Window) Draw(screen *ebiten.Image, whiteMode bool, screenWidth, screenH
 
 	// Draw the image scaled and tinted
 	opts := &ebiten.DrawImageOptions{}
+	scaleX := r / float64(w.img.Bounds().Dx())
+	scaleY := r / float64(w.img.Bounds().Dy())
+	opts.GeoM.Scale(scaleX, scaleY)
 	opts.GeoM.Translate(sx-r/2, sy-r/2)
-	opts.GeoM.Scale(r/float64(w.img.Bounds().Dx()), r/float64(w.img.Bounds().Dy()))
 
 	opts.ColorM.Scale(
 		float64(color[0])/255,
