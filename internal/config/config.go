@@ -18,6 +18,8 @@ type Config struct {
 	RandomizeMaxN  int     `json:"randomizeMaxN"` // maximum seconds between randomize events
 	AutoLoadLast   bool    `json:"autoLoadLast"`  // whether to load last session on startup
 	Collection     string  `json:"collection"`    // name of the collection subdirectory to use
+	Format         string  `json:"format"`        // "png" or "svg"
+	SvgBaseHeight  float64 `json:"svgBaseHeight"` // base height for SVG images in pixels
 }
 
 // DefaultConfig returns the default configuration values
@@ -37,6 +39,8 @@ func DefaultConfig() Config {
 		RandomizeMaxN:  10,
 		AutoLoadLast:   true,
 		Collection:     defaultCollection,
+		Format:         "png",
+		SvgBaseHeight:  64.0,
 	}
 }
 
@@ -155,13 +159,36 @@ func validateAndClamp(cfg *Config) error {
 		cfg.Collection = collections[0]
 	}
 
+	// Format: must be "png" or "svg"
+	if cfg.Format != "png" && cfg.Format != "svg" {
+		cfg.Format = "png"
+	}
+
+	// SvgBaseHeight: 16-512
+	if cfg.SvgBaseHeight < 16 {
+		cfg.SvgBaseHeight = 16
+	} else if cfg.SvgBaseHeight > 512 {
+		cfg.SvgBaseHeight = 512
+	}
+
 	return nil
 }
 
 // DiscoverCollections scans the collection/ directory for subdirectories
 // and returns their names sorted alphabetically.
 func DiscoverCollections() []string {
-	collectionDir := filepath.Join(".", "collection")
+	return discoverCollectionsIn("collection")
+}
+
+// DiscoverSvgCollections scans the svg_collection/ directory for subdirectories
+// and returns their names sorted alphabetically.
+func DiscoverSvgCollections() []string {
+	return discoverCollectionsIn("svg_collection")
+}
+
+// discoverCollectionsIn scans a directory for subdirectories
+func discoverCollectionsIn(dir string) []string {
+	collectionDir := filepath.Join(".", dir)
 	entries, err := os.ReadDir(collectionDir)
 	if err != nil {
 		return nil
@@ -183,6 +210,11 @@ func CollectionPath(name string) string {
 	return filepath.Join(".", "collection", name)
 }
 
+// SvgCollectionPath returns the filesystem path for a given SVG collection name.
+func SvgCollectionPath(name string) string {
+	return filepath.Join(".", "svg_collection", name)
+}
+
 // EnsureCollectionDir ensures the collection directory exists.
 func EnsureCollectionDir() error {
 	return os.MkdirAll(filepath.Join(".", "collection"), 0755)
@@ -190,7 +222,17 @@ func EnsureCollectionDir() error {
 
 // ValidateCollection checks if a collection name is valid (exists as a subdirectory with PNGs).
 func ValidateCollection(name string) error {
-	p := CollectionPath(name)
+	return validateCollectionIn("collection", name, "*.png")
+}
+
+// ValidateSvgCollection checks if an SVG collection name is valid (exists as a subdirectory with SVGs).
+func ValidateSvgCollection(name string) error {
+	return validateCollectionIn("svg_collection", name, "*.svg")
+}
+
+// validateCollectionIn checks if a collection exists and contains files with the given extension
+func validateCollectionIn(dir, name, pattern string) error {
+	p := filepath.Join(".", dir, name)
 	info, err := os.Stat(p)
 	if err != nil {
 		return fmt.Errorf("collection %q not found: %w", name, err)
@@ -198,9 +240,9 @@ func ValidateCollection(name string) error {
 	if !info.IsDir() {
 		return fmt.Errorf("collection %q is not a directory", name)
 	}
-	matches, _ := filepath.Glob(filepath.Join(p, "*.png"))
+	matches, _ := filepath.Glob(filepath.Join(p, pattern))
 	if len(matches) == 0 {
-		return fmt.Errorf("collection %q contains no PNG files", name)
+		return fmt.Errorf("collection %q contains no matching files", name)
 	}
 	return nil
 }

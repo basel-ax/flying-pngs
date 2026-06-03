@@ -29,7 +29,8 @@ type settingRow struct {
 }
 
 var settingsDef = []settingRow{
-	{label: "Collection", kind: "enum", options: nil}, // populated at runtime
+	{label: "Format", kind: "enum", options: []string{"png", "svg"}},
+	{label: "Collection", kind: "enum", options: nil}, // populated at runtime based on format
 	{label: "Window Count", kind: "int", min: 50, max: 1000, step: 50},
 	{label: "Speed", kind: "float", min: 1.0, max: 20.0, step: 0.5},
 	{label: "Width", kind: "int", min: 320, max: 1920, step: 80},
@@ -37,6 +38,7 @@ var settingsDef = []settingRow{
 	{label: "Background", kind: "enum", options: []string{"black", "white", "transparent"}},
 	{label: "Randomize Mode", kind: "bool"},
 	{label: "Randomize Max Sec", kind: "int", min: 1, max: 300, step: 1},
+	{label: "SVG Base Height", kind: "float", min: 16.0, max: 512.0, step: 8.0},
 }
 
 // Game implements ebiten.Game
@@ -54,8 +56,8 @@ type Game struct {
 // NewGame creates a new Game instance.
 // The animation is NOT started — the user sees the settings screen first.
 func NewGame(cfg *config.Config) *Game {
-	// Populate collection options from discovered collections
-	settingsDef[0].options = config.DiscoverCollections()
+	// Populate collection options based on current format
+	updateCollectionOptions(cfg)
 
 	g := &Game{
 		cfg:    cfg,
@@ -63,6 +65,15 @@ func NewGame(cfg *config.Config) *Game {
 		screen: screenSettings,
 	}
 	return g
+}
+
+// updateCollectionOptions populates the collection dropdown based on format
+func updateCollectionOptions(cfg *config.Config) {
+	if cfg.Format == "svg" {
+		settingsDef[1].options = config.DiscoverSvgCollections()
+	} else {
+		settingsDef[1].options = config.DiscoverCollections()
+	}
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -156,7 +167,24 @@ func (g *Game) updateAnimation() error {
 func (g *Game) adjustSetting(dir float64) {
 	row := settingsDef[g.cursor]
 	switch g.cursor {
-	case 0: // Collection
+	case 0: // Format
+		idx := formatIndex(g.cfg.Format)
+		idx += int(dir)
+		if idx < 0 {
+			idx = len(row.options) - 1
+		}
+		if idx >= len(row.options) {
+			idx = 0
+		}
+		g.cfg.Format = row.options[idx]
+		// Update collection options and reset collection
+		updateCollectionOptions(g.cfg)
+		if len(settingsDef[1].options) > 0 {
+			g.cfg.Collection = settingsDef[1].options[0]
+		} else {
+			g.cfg.Collection = ""
+		}
+	case 1: // Collection
 		idx := collectionIndex(g.cfg.Collection)
 		idx += int(dir)
 		if idx < 0 {
@@ -168,7 +196,7 @@ func (g *Game) adjustSetting(dir float64) {
 		if len(row.options) > 0 {
 			g.cfg.Collection = row.options[idx]
 		}
-	case 1: // Window Count
+	case 2: // Window Count
 		v := float64(g.cfg.WindowCount) + dir*row.step
 		if v < row.min {
 			v = row.min
@@ -177,7 +205,7 @@ func (g *Game) adjustSetting(dir float64) {
 			v = row.max
 		}
 		g.cfg.WindowCount = int(v)
-	case 2: // Speed
+	case 3: // Speed
 		g.cfg.Speed += dir * row.step
 		if g.cfg.Speed < row.min {
 			g.cfg.Speed = row.min
@@ -185,7 +213,7 @@ func (g *Game) adjustSetting(dir float64) {
 		if g.cfg.Speed > row.max {
 			g.cfg.Speed = row.max
 		}
-	case 3: // Width
+	case 4: // Width
 		v := float64(g.cfg.Width) + dir*row.step
 		if v < row.min {
 			v = row.min
@@ -194,7 +222,7 @@ func (g *Game) adjustSetting(dir float64) {
 			v = row.max
 		}
 		g.cfg.Width = int(v)
-	case 4: // Height
+	case 5: // Height
 		v := float64(g.cfg.Height) + dir*row.step
 		if v < row.min {
 			v = row.min
@@ -203,7 +231,7 @@ func (g *Game) adjustSetting(dir float64) {
 			v = row.max
 		}
 		g.cfg.Height = int(v)
-	case 5: // Background
+	case 6: // Background
 		idx := bgIndex(g.cfg.BackgroundType)
 		idx += int(dir)
 		if idx < 0 {
@@ -213,9 +241,9 @@ func (g *Game) adjustSetting(dir float64) {
 			idx = 0
 		}
 		g.cfg.BackgroundType = row.options[idx]
-	case 6: // Randomize Mode
+	case 7: // Randomize Mode
 		g.cfg.RandomizeMode = !g.cfg.RandomizeMode
-	case 7: // Randomize Max N
+	case 8: // Randomize Max N
 		v := float64(g.cfg.RandomizeMaxN) + dir*row.step
 		if v < row.min {
 			v = row.min
@@ -224,11 +252,19 @@ func (g *Game) adjustSetting(dir float64) {
 			v = row.max
 		}
 		g.cfg.RandomizeMaxN = int(v)
+	case 9: // SVG Base Height
+		g.cfg.SvgBaseHeight += dir * row.step
+		if g.cfg.SvgBaseHeight < row.min {
+			g.cfg.SvgBaseHeight = row.min
+		}
+		if g.cfg.SvgBaseHeight > row.max {
+			g.cfg.SvgBaseHeight = row.max
+		}
 	}
 }
 
 func bgIndex(bg string) int {
-	for i, o := range settingsDef[5].options {
+	for i, o := range settingsDef[6].options {
 		if o == bg {
 			return i
 		}
@@ -237,8 +273,17 @@ func bgIndex(bg string) int {
 }
 
 func collectionIndex(name string) int {
-	for i, o := range settingsDef[0].options {
+	for i, o := range settingsDef[1].options {
 		if o == name {
+			return i
+		}
+	}
+	return 0
+}
+
+func formatIndex(format string) int {
+	for i, o := range settingsDef[0].options {
+		if o == format {
 			return i
 		}
 	}
@@ -315,27 +360,31 @@ func (g *Game) drawSettings(screen *ebiten.Image) {
 func (g *Game) settingValueString(idx int) string {
 	switch idx {
 	case 0:
+		return g.cfg.Format
+	case 1:
 		if g.cfg.Collection == "" {
 			return "(none)"
 		}
 		return g.cfg.Collection
-	case 1:
-		return fmt.Sprintf("%d", g.cfg.WindowCount)
 	case 2:
-		return fmt.Sprintf("%.1f", g.cfg.Speed)
+		return fmt.Sprintf("%d", g.cfg.WindowCount)
 	case 3:
-		return fmt.Sprintf("%d", g.cfg.Width)
+		return fmt.Sprintf("%.1f", g.cfg.Speed)
 	case 4:
-		return fmt.Sprintf("%d", g.cfg.Height)
+		return fmt.Sprintf("%d", g.cfg.Width)
 	case 5:
-		return g.cfg.BackgroundType
+		return fmt.Sprintf("%d", g.cfg.Height)
 	case 6:
+		return g.cfg.BackgroundType
+	case 7:
 		if g.cfg.RandomizeMode {
 			return "ON"
 		}
 		return "OFF"
-	case 7:
+	case 8:
 		return fmt.Sprintf("%d", g.cfg.RandomizeMaxN)
+	case 9:
+		return fmt.Sprintf("%.0f", g.cfg.SvgBaseHeight)
 	}
 	return "?"
 }

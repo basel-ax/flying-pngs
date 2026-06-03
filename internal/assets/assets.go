@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 
 	ebitenimg "github.com/hajimehoshi/ebiten/v2"
+	"github.com/srwiley/oksvg"
+	"github.com/srwiley/rasterx"
 )
 
 // LoadPNGAssets loads all PNG assets from the collection/<collectionName>/ directory
@@ -50,4 +52,78 @@ func LoadPNGAssets(basePath, collectionName string) ([]*ebitenimg.Image, error) 
 
 	log.Printf("[INFO] Asset loading complete: %d/%d images loaded", len(results), len(files))
 	return results, nil
+}
+
+// LoadSVGAssets loads all SVG assets from the svg_collection/<collectionName>/ directory
+// relative to basePath and converts them to Ebiten images.
+// SVGs are rasterized to the specified baseHeight in pixels.
+func LoadSVGAssets(basePath, collectionName string, baseHeight float64) ([]*ebitenimg.Image, error) {
+	var results []*ebitenimg.Image
+	pattern := filepath.Join(basePath, "svg_collection", collectionName, "*.svg")
+
+	files, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("glob error for %q: %w", pattern, err)
+	}
+
+	log.Printf("[INFO] SVG asset search: pattern=%q found=%d files", pattern, len(files))
+
+	if len(files) == 0 {
+		absPath, _ := filepath.Abs(pattern)
+		return nil, fmt.Errorf("no SVG files found matching %q (abs: %s)", pattern, absPath)
+	}
+
+	for _, p := range files {
+		img, err := loadSVGAsImage(p, baseHeight)
+		if err != nil {
+			log.Printf("[WARN] Cannot load SVG %s: %v", p, err)
+			continue
+		}
+		results = append(results, img)
+	}
+
+	log.Printf("[INFO] SVG asset loading complete: %d/%d images loaded", len(results), len(files))
+	return results, nil
+}
+
+// loadSVGAsImage loads a single SVG file and rasterizes it to an Ebiten image
+func loadSVGAsImage(path string, baseHeight float64) (*ebitenimg.Image, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	icon, err := oksvg.ReadIconStream(f)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SVG: %w", err)
+	}
+
+	// Get SVG dimensions
+	w, h := int(icon.ViewBox.W), int(icon.ViewBox.H)
+	if w == 0 || h == 0 {
+		w, h = int(baseHeight), int(baseHeight)
+	}
+
+	// Calculate scale to match baseHeight
+	scale := baseHeight / float64(h)
+	targetW := int(float64(w) * scale)
+	targetH := int(baseHeight)
+
+	if targetW == 0 || targetH == 0 {
+		return nil, fmt.Errorf("invalid dimensions: %dx%d", targetW, targetH)
+	}
+
+	// Create RGBA image
+	img := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
+
+	// Rasterize SVG
+	scanner := rasterx.NewScannerGV(targetW, targetH, img, img.Bounds())
+	raster := rasterx.NewDasher(targetW, targetH, scanner)
+
+	icon.SetTarget(0, 0, float64(targetW), float64(targetH))
+	icon.Draw(raster, 1.0)
+
+	log.Printf("[INFO] Loaded SVG %s: size=%dx%d", path, targetW, targetH)
+	return ebitenimg.NewImageFromImage(img), nil
 }

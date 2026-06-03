@@ -33,6 +33,7 @@ type AnimationCanvas struct {
 	tintColors        [][]int
 	darkTintColors    [][]int
 	drawFrames        int // counts frames drawn for startup debug
+	svgBaseHeight     float64
 }
 
 // DebugInfo returns a formatted string of the current animation state for debugging
@@ -114,33 +115,52 @@ func NewAnimationCanvas(cfg *config.Config) *AnimationCanvas {
 		randomizeN:     float64(cfg.RandomizeMaxN),
 		tintColors:     tintColors,
 		darkTintColors: darkTintColors,
+		svgBaseHeight:  cfg.SvgBaseHeight,
 	}
 
-	// Load assets
+	// Load assets based on format
 	if err := ac.loadAssets(); err != nil {
 		log.Printf("[ERROR] Failed to load assets: %v", err)
 		panic("Failed to load assets: " + err.Error())
 	}
 	if len(ac.imgs) == 0 {
-		log.Printf("[ERROR] No PNG images found in ./collection/%s/ directory", cfg.Collection)
-		panic(fmt.Sprintf("No PNG images found in ./collection/%s/ directory — check working directory", cfg.Collection))
+		formatDir := "collection"
+		if cfg.Format == "svg" {
+			formatDir = "svg_collection"
+		}
+		log.Printf("[ERROR] No images found in ./%s/%s/ directory", formatDir, cfg.Collection)
+		panic(fmt.Sprintf("No images found in ./%s/%s/ directory — check working directory", formatDir, cfg.Collection))
 	}
-	log.Printf("[INFO] NewAnimationCanvas: %d images loaded, %d windows, %dx%d, speed=%.1f",
-		len(ac.imgs), ac.windowsNum, cfg.Width, cfg.Height, cfg.Speed)
+	log.Printf("[INFO] NewAnimationCanvas: %d images loaded (%s format), %d windows, %dx%d, speed=%.1f",
+		len(ac.imgs), cfg.Format, ac.windowsNum, cfg.Width, cfg.Height, cfg.Speed)
 
 	ac.windows = make([]*Window, 0, ac.windowsNum)
 	return ac
 }
 
-// loadAssets loads all PNG assets from the assets package
+// loadAssets loads all PNG or SVG assets based on the configured format
 func (ac *AnimationCanvas) loadAssets() error {
-	ebImages, err := assets.LoadPNGAssets(".", ac.cfg.Collection)
-	if err != nil {
-		return fmt.Errorf("asset glob error: %w", err)
+	var ebImages []*ebiten.Image
+	var err error
+
+	if ac.cfg.Format == "svg" {
+		ebImages, err = assets.LoadSVGAssets(".", ac.cfg.Collection, ac.svgBaseHeight)
+		if err != nil {
+			return fmt.Errorf("SVG asset glob error: %w", err)
+		}
+		if len(ebImages) == 0 {
+			return fmt.Errorf("no SVG files matched ./svg_collection/%s/*.svg", ac.cfg.Collection)
+		}
+	} else {
+		ebImages, err = assets.LoadPNGAssets(".", ac.cfg.Collection)
+		if err != nil {
+			return fmt.Errorf("PNG asset glob error: %w", err)
+		}
+		if len(ebImages) == 0 {
+			return fmt.Errorf("no PNG files matched ./collection/%s/*.png", ac.cfg.Collection)
+		}
 	}
-	if len(ebImages) == 0 {
-		return fmt.Errorf("no PNG files matched ./collection/%s/*.png", ac.cfg.Collection)
-	}
+
 	ac.imgs = ebImages
 	return nil
 }
