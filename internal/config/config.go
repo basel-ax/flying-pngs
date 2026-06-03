@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 // Config holds all user-configurable settings for the flying PNGs application
@@ -19,7 +20,7 @@ type Config struct {
 	AutoLoadLast   bool    `json:"autoLoadLast"`  // whether to load last session on startup
 	Collection     string  `json:"collection"`    // name of the collection subdirectory to use
 	Format         string  `json:"format"`        // "png" or "svg"
-	SvgBaseHeight  float64 `json:"svgBaseHeight"` // base height for SVG images in pixels
+	ImageSize      float64 `json:"imageSize"`     // base display size for flying images in pixels
 }
 
 // DefaultConfig returns the default configuration values
@@ -40,7 +41,7 @@ func DefaultConfig() Config {
 		AutoLoadLast:   true,
 		Collection:     defaultCollection,
 		Format:         "png",
-		SvgBaseHeight:  64.0,
+		ImageSize:      64.0,
 	}
 }
 
@@ -146,8 +147,18 @@ func validateAndClamp(cfg *Config) error {
 		cfg.RandomizeMaxN = 300
 	}
 
-	// Collection: must be a valid discovered collection
-	collections := DiscoverCollections()
+	// Format: must be "png" or "svg"
+	if cfg.Format != "png" && cfg.Format != "svg" {
+		cfg.Format = "png"
+	}
+
+	// Collection: must be a valid discovered collection for the chosen format
+	var collections []string
+	if cfg.Format == "svg" {
+		collections = DiscoverSvgCollections()
+	} else {
+		collections = DiscoverCollections()
+	}
 	valid := false
 	for _, c := range collections {
 		if cfg.Collection == c {
@@ -155,20 +166,19 @@ func validateAndClamp(cfg *Config) error {
 			break
 		}
 	}
-	if !valid && len(collections) > 0 {
-		cfg.Collection = collections[0]
+	if !valid {
+		if len(collections) > 0 {
+			cfg.Collection = collections[0]
+		} else {
+			cfg.Collection = ""
+		}
 	}
 
-	// Format: must be "png" or "svg"
-	if cfg.Format != "png" && cfg.Format != "svg" {
-		cfg.Format = "png"
-	}
-
-	// SvgBaseHeight: 16-512
-	if cfg.SvgBaseHeight < 16 {
-		cfg.SvgBaseHeight = 16
-	} else if cfg.SvgBaseHeight > 512 {
-		cfg.SvgBaseHeight = 512
+	// ImageSize: 8-256 pixels
+	if cfg.ImageSize < 8 {
+		cfg.ImageSize = 8
+	} else if cfg.ImageSize > 256 {
+		cfg.ImageSize = 256
 	}
 
 	return nil
@@ -188,7 +198,7 @@ func DiscoverSvgCollections() []string {
 
 // discoverCollectionsIn scans a directory for subdirectories
 func discoverCollectionsIn(dir string) []string {
-	collectionDir := filepath.Join(".", dir)
+	collectionDir := filepath.Join(projectRoot(), dir)
 	entries, err := os.ReadDir(collectionDir)
 	if err != nil {
 		return nil
@@ -205,19 +215,31 @@ func discoverCollectionsIn(dir string) []string {
 	return names
 }
 
+// projectRoot returns the project root directory
+func projectRoot() string {
+	// Try to find the project root by looking for go.mod
+	_, filename, _, ok := runtime.Caller(0)
+	if ok {
+		// Go up from internal/config/config.go to project root
+		return filepath.Join(filepath.Dir(filename), "..", "..")
+	}
+	// Fallback to current directory
+	return "."
+}
+
 // CollectionPath returns the filesystem path for a given collection name.
 func CollectionPath(name string) string {
-	return filepath.Join(".", "collection", name)
+	return filepath.Join(projectRoot(), "collection", name)
 }
 
 // SvgCollectionPath returns the filesystem path for a given SVG collection name.
 func SvgCollectionPath(name string) string {
-	return filepath.Join(".", "svg_collection", name)
+	return filepath.Join(projectRoot(), "svg_collection", name)
 }
 
 // EnsureCollectionDir ensures the collection directory exists.
 func EnsureCollectionDir() error {
-	return os.MkdirAll(filepath.Join(".", "collection"), 0755)
+	return os.MkdirAll(filepath.Join(projectRoot(), "collection"), 0755)
 }
 
 // ValidateCollection checks if a collection name is valid (exists as a subdirectory with PNGs).
@@ -232,7 +254,7 @@ func ValidateSvgCollection(name string) error {
 
 // validateCollectionIn checks if a collection exists and contains files with the given extension
 func validateCollectionIn(dir, name, pattern string) error {
-	p := filepath.Join(".", dir, name)
+	p := filepath.Join(projectRoot(), dir, name)
 	info, err := os.Stat(p)
 	if err != nil {
 		return fmt.Errorf("collection %q not found: %w", name, err)

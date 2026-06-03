@@ -38,7 +38,7 @@ var settingsDef = []settingRow{
 	{label: "Background", kind: "enum", options: []string{"black", "white", "transparent"}},
 	{label: "Randomize Mode", kind: "bool"},
 	{label: "Randomize Max Sec", kind: "int", min: 1, max: 300, step: 1},
-	{label: "SVG Base Height", kind: "float", min: 16.0, max: 512.0, step: 8.0},
+	{label: "Image Size", kind: "float", min: 8.0, max: 256.0, step: 4.0},
 }
 
 // Game implements ebiten.Game
@@ -129,12 +129,18 @@ func (g *Game) updateSettings() error {
 
 	// Enter → start animation
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		g.startAnimation()
+		// Check if collection is valid before starting
+		if g.cfg.Collection == "" {
+			g.statusMsg = "ERROR: No collection selected. Please select a collection first."
+		} else {
+			g.startAnimation()
+		}
 	}
 
 	// D → toggle debug (works on settings screen too)
 	if inpututil.IsKeyJustPressed(ebiten.KeyD) {
 		g.debugMode = !g.debugMode
+		g.anim.SetDebugMode(g.debugMode)
 	}
 
 	return nil
@@ -151,6 +157,7 @@ func (g *Game) updateAnimation() error {
 	// D → toggle debug overlay
 	if inpututil.IsKeyJustPressed(ebiten.KeyD) {
 		g.debugMode = !g.debugMode
+		g.anim.SetDebugMode(g.debugMode)
 	}
 
 	// Escape → back to settings
@@ -252,13 +259,13 @@ func (g *Game) adjustSetting(dir float64) {
 			v = row.max
 		}
 		g.cfg.RandomizeMaxN = int(v)
-	case 9: // SVG Base Height
-		g.cfg.SvgBaseHeight += dir * row.step
-		if g.cfg.SvgBaseHeight < row.min {
-			g.cfg.SvgBaseHeight = row.min
+	case 9: // Image Size
+		g.cfg.ImageSize += dir * row.step
+		if g.cfg.ImageSize < row.min {
+			g.cfg.ImageSize = row.min
 		}
-		if g.cfg.SvgBaseHeight > row.max {
-			g.cfg.SvgBaseHeight = row.max
+		if g.cfg.ImageSize > row.max {
+			g.cfg.ImageSize = row.max
 		}
 	}
 }
@@ -294,6 +301,20 @@ func formatIndex(format string) int {
 func (g *Game) startAnimation() {
 	// Re-create animation canvas with possibly-updated config
 	g.anim = animation.NewAnimationCanvas(g.cfg)
+
+	// Check if assets were loaded successfully
+	if g.anim.AssetCount() == 0 {
+		formatDir := "collection"
+		if g.cfg.Format == "svg" {
+			formatDir = "svg_collection"
+		}
+		g.statusMsg = fmt.Sprintf("ERROR: No images found in %s/%s/", formatDir, g.cfg.Collection)
+		return
+	}
+
+	// Sync debug mode to the new animation canvas
+	g.anim.SetDebugMode(g.debugMode)
+
 	g.anim.Start()
 	g.screen = screenAnimation
 	g.statusMsg = "Running — ESC to return to settings"
@@ -384,7 +405,7 @@ func (g *Game) settingValueString(idx int) string {
 	case 8:
 		return fmt.Sprintf("%d", g.cfg.RandomizeMaxN)
 	case 9:
-		return fmt.Sprintf("%.0f", g.cfg.SvgBaseHeight)
+		return fmt.Sprintf("%.0f", g.cfg.ImageSize)
 	}
 	return "?"
 }

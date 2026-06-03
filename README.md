@@ -34,10 +34,11 @@ go build -o flying-pngs ./cmd
    - [Build and Run](#build-and-run)
 4. [Configuration](#configuration)
 5. [Keyboard Shortcuts](#keyboard-shortcuts)
-6. [Randomize Mode](#randomize-mode)
-7. [Building for Distribution](#building-for-distribution)
-8. [Troubleshooting](#troubleshooting)
-9. [Contributing](#contributing)
+6. [Debug Mode](#debug-mode)
+7. [Randomize Mode](#randomize-mode)
+8. [Building for Distribution](#building-for-distribution)
+9. [Troubleshooting](#troubleshooting)
+10. [Contributing](#contributing)
 
 ---
 
@@ -133,6 +134,26 @@ Settings are saved to `~/.flying-pngs/config.json` and restored on launch.
 ## Randomize Mode
 
 When enabled, a timer fires at random intervals (0–N seconds), toggling animation speed between normal and ×1/5. A "SLOW ×1/5" indicator appears during slow phases.
+
+## Debug Mode
+
+By default, the application only prints critical messages (`[WARN]` and `[ERROR]`). To enable verbose `[INFO]` logging (asset loading details, animation state, etc.), pass the `--debug` flag:
+
+```bash
+# Run with debug logging
+go run ./cmd --debug
+
+# Or with a built binary
+./flying-pngs --debug
+```
+
+You can also toggle the on-screen debug overlay at any time by pressing `D`.
+
+| Log Level | Shown by Default | Shown with `--debug` |
+|-----------|------------------|----------------------|
+| `[ERROR]` | Yes | Yes |
+| `[WARN]`  | Yes | Yes |
+| `[INFO]`  | No  | Yes |
 
 ## Building for Distribution
 

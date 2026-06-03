@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"image"
 	_ "image/png"
-	"log"
 	"os"
 	"path/filepath"
 
 	ebitenimg "github.com/hajimehoshi/ebiten/v2"
 	"github.com/srwiley/oksvg"
 	"github.com/srwiley/rasterx"
+
+	"github.com/basel-ax/flying-pngs/internal/logger"
 )
 
 // LoadPNGAssets loads all PNG assets from the collection/<collectionName>/ directory
@@ -25,7 +26,7 @@ func LoadPNGAssets(basePath, collectionName string) ([]*ebitenimg.Image, error) 
 		return nil, fmt.Errorf("glob error for %q: %w", pattern, err)
 	}
 
-	log.Printf("[INFO] Asset search: pattern=%q found=%d files", pattern, len(files))
+	logger.Info("Asset search: pattern=%q found=%d files", pattern, len(files))
 
 	if len(files) == 0 {
 		absPath, _ := filepath.Abs(pattern)
@@ -35,31 +36,30 @@ func LoadPNGAssets(basePath, collectionName string) ([]*ebitenimg.Image, error) 
 	for _, p := range files {
 		f, err := os.Open(p)
 		if err != nil {
-			log.Printf("[WARN] Cannot open %s: %v", p, err)
+			logger.Warn("Cannot open %s: %v", p, err)
 			continue
 		}
 		img, format, err := image.Decode(f)
 		f.Close()
 		if err != nil {
-			log.Printf("[WARN] Cannot decode %s: %v", p, err)
+			logger.Warn("Cannot decode %s: %v", p, err)
 			continue
 		}
 		bounds := img.Bounds()
-		log.Printf("[INFO] Loaded %s: format=%s size=%dx%d", p, format, bounds.Dx(), bounds.Dy())
+		logger.Info("Loaded %s: format=%s size=%dx%d", p, format, bounds.Dx(), bounds.Dy())
 		ebImg := ebitenimg.NewImageFromImage(img)
 		results = append(results, ebImg)
 	}
 
-	log.Printf("[INFO] Asset loading complete: %d/%d images loaded", len(results), len(files))
+	logger.Info("Asset loading complete: %d/%d images loaded", len(results), len(files))
 	return results, nil
 }
 
 // LoadSVGAssets loads all SVG assets from the svg_collection/<collectionName>/ directory
 // relative to basePath and converts them to Ebiten images.
-// SVGs are rasterized at a high master resolution for quality; the baseHeight parameter
-// controls the target display size, while the actual rasterization uses masterSize
-// to ensure smooth lines at any scale.
-func LoadSVGAssets(basePath, collectionName string, baseHeight float64) ([]*ebitenimg.Image, error) {
+// SVGs are rasterized at a fixed high resolution (512px) for smooth vector lines;
+// the actual display size is controlled separately via the Window's baseSize field.
+func LoadSVGAssets(basePath, collectionName string) ([]*ebitenimg.Image, error) {
 	var results []*ebitenimg.Image
 	pattern := filepath.Join(basePath, "svg_collection", collectionName, "*.svg")
 
@@ -68,30 +68,26 @@ func LoadSVGAssets(basePath, collectionName string, baseHeight float64) ([]*ebit
 		return nil, fmt.Errorf("glob error for %q: %w", pattern, err)
 	}
 
-	log.Printf("[INFO] SVG asset search: pattern=%q found=%d files", pattern, len(files))
+	logger.Info("SVG asset search: pattern=%q found=%d files", pattern, len(files))
 
 	if len(files) == 0 {
 		absPath, _ := filepath.Abs(pattern)
 		return nil, fmt.Errorf("no SVG files found matching %q (abs: %s)", pattern, absPath)
 	}
 
-	// Rasterize at a high resolution for quality. The baseHeight controls display size,
-	// but we render much larger so Ebiten scales down (preserving smooth vector lines).
-	masterSize := baseHeight * 8 // 8x oversampling for crisp rendering
-	if masterSize < 512 {
-		masterSize = 512
-	}
+	// Fixed high resolution for quality - display size is controlled separately
+	const masterSize = 512.0
 
 	for _, p := range files {
 		img, err := loadSVGAsImage(p, masterSize)
 		if err != nil {
-			log.Printf("[WARN] Cannot load SVG %s: %v", p, err)
+			logger.Warn("Cannot load SVG %s: %v", p, err)
 			continue
 		}
 		results = append(results, img)
 	}
 
-	log.Printf("[INFO] SVG asset loading complete: %d/%d images loaded (master size: %.0fpx)", len(results), len(files), masterSize)
+	logger.Info("SVG asset loading complete: %d/%d images loaded (master size: %.0fpx)", len(results), len(files), masterSize)
 	return results, nil
 }
 
@@ -133,6 +129,6 @@ func loadSVGAsImage(path string, baseHeight float64) (*ebitenimg.Image, error) {
 	icon.SetTarget(0, 0, float64(targetW), float64(targetH))
 	icon.Draw(raster, 1.0)
 
-	log.Printf("[INFO] Loaded SVG %s: size=%dx%d", path, targetW, targetH)
+	logger.Info("Loaded SVG %s: size=%dx%d", path, targetW, targetH)
 	return ebitenimg.NewImageFromImage(img), nil
 }

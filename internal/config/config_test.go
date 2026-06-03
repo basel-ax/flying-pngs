@@ -76,7 +76,7 @@ func TestSaveAndLoadConfig(t *testing.T) {
 		AutoLoadLast:   false,
 		Collection:     "symbol",
 		Format:         "svg",
-		SvgBaseHeight:  128.0,
+		ImageSize:      128.0,
 	}
 
 	// Save the config
@@ -121,8 +121,8 @@ func TestSaveAndLoadConfig(t *testing.T) {
 	if loadedCfg.Format != cfg.Format {
 		t.Errorf("Expected Format=%s, got %s", cfg.Format, loadedCfg.Format)
 	}
-	if loadedCfg.SvgBaseHeight != cfg.SvgBaseHeight {
-		t.Errorf("Expected SvgBaseHeight=%v, got %v", cfg.SvgBaseHeight, loadedCfg.SvgBaseHeight)
+	if loadedCfg.ImageSize != cfg.ImageSize {
+		t.Errorf("Expected ImageSize=%v, got %v", cfg.ImageSize, loadedCfg.ImageSize)
 	}
 }
 

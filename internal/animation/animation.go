@@ -3,7 +3,6 @@ package animation
 import (
 	"fmt"
 	"image/color"
-	"log"
 	"math/rand"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 
 	"github.com/basel-ax/flying-pngs/internal/assets"
 	"github.com/basel-ax/flying-pngs/internal/config"
+	"github.com/basel-ax/flying-pngs/internal/logger"
 )
 
 // AnimationCanvas holds the state for the flying PNGs animation
@@ -33,7 +33,7 @@ type AnimationCanvas struct {
 	tintColors        [][]int
 	darkTintColors    [][]int
 	drawFrames        int // counts frames drawn for startup debug
-	svgBaseHeight     float64
+	debugMode         bool
 }
 
 // DebugInfo returns a formatted string of the current animation state for debugging
@@ -71,6 +71,7 @@ type Window struct {
 	width, height  int
 	tintColors     [][]int
 	darkTintColors [][]int
+	baseSize       float64 // base display size in pixels
 }
 
 // NewAnimationCanvas creates a new animation canvas with the given configuration
@@ -115,23 +116,22 @@ func NewAnimationCanvas(cfg *config.Config) *AnimationCanvas {
 		randomizeN:     float64(cfg.RandomizeMaxN),
 		tintColors:     tintColors,
 		darkTintColors: darkTintColors,
-		svgBaseHeight:  cfg.SvgBaseHeight,
 	}
 
 	// Load assets based on format
 	if err := ac.loadAssets(); err != nil {
-		log.Printf("[ERROR] Failed to load assets: %v", err)
-		panic("Failed to load assets: " + err.Error())
+		logger.Error("Failed to load assets: %v", err)
+		// Don't panic - return canvas with empty images
+		// The UI will handle displaying an error message
 	}
 	if len(ac.imgs) == 0 {
 		formatDir := "collection"
 		if cfg.Format == "svg" {
 			formatDir = "svg_collection"
 		}
-		log.Printf("[ERROR] No images found in ./%s/%s/ directory", formatDir, cfg.Collection)
-		panic(fmt.Sprintf("No images found in ./%s/%s/ directory — check working directory", formatDir, cfg.Collection))
+		logger.Warn("No images found in ./%s/%s/ directory", formatDir, cfg.Collection)
 	}
-	log.Printf("[INFO] NewAnimationCanvas: %d images loaded (%s format), %d windows, %dx%d, speed=%.1f",
+	logger.Info("NewAnimationCanvas: %d images loaded (%s format), %d windows, %dx%d, speed=%.1f",
 		len(ac.imgs), cfg.Format, ac.windowsNum, cfg.Width, cfg.Height, cfg.Speed)
 
 	ac.windows = make([]*Window, 0, ac.windowsNum)
@@ -144,7 +144,7 @@ func (ac *AnimationCanvas) loadAssets() error {
 	var err error
 
 	if ac.cfg.Format == "svg" {
-		ebImages, err = assets.LoadSVGAssets(".", ac.cfg.Collection, ac.svgBaseHeight)
+		ebImages, err = assets.LoadSVGAssets(".", ac.cfg.Collection)
 		if err != nil {
 			return fmt.Errorf("SVG asset glob error: %w", err)
 		}
@@ -170,14 +170,19 @@ func (ac *AnimationCanvas) Start() {
 	if ac.started {
 		return
 	}
+	// Don't start if no images loaded
+	if len(ac.imgs) == 0 {
+		logger.Warn("Cannot start animation: no images loaded")
+		return
+	}
 	ac.started = true
 	ac.windows = make([]*Window, ac.windowsNum)
 	for i := 0; i < ac.windowsNum; i++ {
-		ac.windows[i] = NewWindow(ac.imgs, ac.tintColors, ac.darkTintColors, ac.cfg.Width, ac.cfg.Height)
+		ac.windows[i] = NewWindow(ac.imgs, ac.tintColors, ac.darkTintColors, ac.cfg.Width, ac.cfg.Height, ac.cfg.ImageSize)
 	}
 	ac.nextRandomizeTime = time.Now().UnixNano() + time.Duration(rand.Float64()*ac.randomizeN*float64(time.Second)).Nanoseconds()
 	ac.lastUpdate = time.Now().UnixNano()
-	log.Printf("[INFO] Animation started: %d windows created", ac.windowsNum)
+	logger.Info("Animation started: %d windows created", ac.windowsNum)
 }
 
 // Stop stops the animation
@@ -200,7 +205,7 @@ func (ac *AnimationCanvas) SetCount(count int) {
 	ac.windowsNum = count
 	if len(ac.windows) < ac.windowsNum {
 		for i := len(ac.windows); i < ac.windowsNum; i++ {
-			ac.windows = append(ac.windows, NewWindow(ac.imgs, ac.tintColors, ac.darkTintColors, ac.cfg.Width, ac.cfg.Height))
+			ac.windows = append(ac.windows, NewWindow(ac.imgs, ac.tintColors, ac.darkTintColors, ac.cfg.Width, ac.cfg.Height, ac.cfg.ImageSize))
 		}
 	} else if len(ac.windows) > ac.windowsNum {
 		ac.windows = ac.windows[:ac.windowsNum]
@@ -240,6 +245,11 @@ func (ac *AnimationCanvas) SetWhiteMode(enabled bool) {
 // TogglePause pauses or resumes the animation
 func (ac *AnimationCanvas) TogglePause() {
 	ac.paused = !ac.paused
+}
+
+// SetDebugMode enables or disables debug overlays
+func (ac *AnimationCanvas) SetDebugMode(enabled bool) {
+	ac.debugMode = enabled
 }
 
 // Update updates the animation state
@@ -307,19 +317,20 @@ func (ac *AnimationCanvas) Draw(screen *ebiten.Image) {
 		ebitenutil.DebugPrintAt(screen, "PAUSED (P)", ac.cfg.Width-100, ac.cfg.Height-20)
 	}
 
-	// Draw randomize mode indicator if active and slowed
-	if ac.randomizeMode && ac.isSlowed && !ac.paused {
+	// Draw randomize mode indicator if active and slowed (debug only)
+	if ac.debugMode && ac.randomizeMode && ac.isSlowed && !ac.paused {
 		ebitenutil.DebugPrintAt(screen, "SLOW x1/5", 10, ac.cfg.Height-20)
 	}
 }
 
 // NewWindow creates a new window with random initial values
-func NewWindow(imgs []*ebiten.Image, tintColors [][]int, darkTintColors [][]int, width, height int) *Window {
+func NewWindow(imgs []*ebiten.Image, tintColors [][]int, darkTintColors [][]int, width, height int, baseSize float64) *Window {
 	w := &Window{
 		tintColors:     tintColors,
 		darkTintColors: darkTintColors,
 		width:          width,
 		height:         height,
+		baseSize:       baseSize,
 	}
 	w.Reset(imgs, width, height)
 	return w
@@ -369,7 +380,7 @@ func (w *Window) Draw(screen *ebiten.Image, whiteMode bool, screenWidth, screenH
 	sy := w.y*scale + float64(screenHeight)/2
 
 	// Image size based on depth
-	targetSize := 64.0 * scale // base size 64px at scale=1
+	targetSize := w.baseSize * scale
 	if targetSize < 2 {
 		return // too small to see
 	}
