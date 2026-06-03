@@ -1,6 +1,7 @@
 package animation
 
 import (
+	"fmt"
 	"image/color"
 	"math/rand"
 	"time"
@@ -31,6 +32,33 @@ type AnimationCanvas struct {
 	tintColors        [][]int
 	darkTintColors    [][]int
 }
+
+// DebugInfo returns a formatted string of the current animation state for debugging
+func (ac *AnimationCanvas) DebugInfo() string {
+	assetCount := len(ac.imgs)
+	return fmt.Sprintf(
+		"[DEBUG]\nstarted=%v paused=%v\nwindows=%d imgs=%d\nspeed=%.1f baseSpeed=%.1f\nwhiteMode=%v randomize=%v\nisSlowed=%v\nnextRandzIn=%.1fs\nFPS=%.1f",
+		ac.started, ac.paused,
+		len(ac.windows), assetCount,
+		ac.speed, ac.baseSpeed,
+		ac.whiteMode, ac.randomizeMode,
+		ac.isSlowed,
+		float64(ac.nextRandomizeTime-time.Now().UnixNano())/float64(time.Second),
+		ebiten.ActualFPS(),
+	)
+}
+
+// IsStarted returns whether the animation has started
+func (ac *AnimationCanvas) IsStarted() bool { return ac.started }
+
+// IsPaused returns whether the animation is paused
+func (ac *AnimationCanvas) IsPaused() bool { return ac.paused }
+
+// GetConfig returns the underlying config
+func (ac *AnimationCanvas) GetConfig() *config.Config { return ac.cfg }
+
+// AssetCount returns number of loaded images
+func (ac *AnimationCanvas) AssetCount() int { return len(ac.imgs) }
 
 // Window represents a single flying window/logo
 type Window struct {

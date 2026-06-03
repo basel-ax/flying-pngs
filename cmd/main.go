@@ -1,6 +1,9 @@
 package main
 
 import (
+	"log"
+	"os"
+
 	"github.com/basel-ax/flying-pngs/internal/config"
 	"github.com/basel-ax/flying-pngs/internal/ui"
 
@@ -8,7 +11,20 @@ import (
 )
 
 func main() {
-	cfg, _ := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		log.Printf("[WARN] Could not load config, using defaults: %v", err)
+		cfg = config.DefaultConfig()
+	}
+
 	game := ui.NewGame(&cfg)
-	ebiten.RunGame(game)
+
+	ebiten.SetWindowSize(cfg.Width, cfg.Height)
+	ebiten.SetWindowTitle("Flying PNGs — Settings")
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+
+	if err := ebiten.RunGame(game); err != nil {
+		log.Printf("[ERROR] Game exited: %v", err)
+		os.Exit(1)
+	}
 }
