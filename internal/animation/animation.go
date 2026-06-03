@@ -3,6 +3,7 @@ package animation
 import (
 	"fmt"
 	"image/color"
+	"log"
 	"math/rand"
 	"time"
 
@@ -31,20 +32,21 @@ type AnimationCanvas struct {
 	lastUpdate        int64
 	tintColors        [][]int
 	darkTintColors    [][]int
+	drawFrames        int // counts frames drawn for startup debug
 }
 
 // DebugInfo returns a formatted string of the current animation state for debugging
 func (ac *AnimationCanvas) DebugInfo() string {
-	assetCount := len(ac.imgs)
 	return fmt.Sprintf(
-		"[DEBUG]\nstarted=%v paused=%v\nwindows=%d imgs=%d\nspeed=%.1f baseSpeed=%.1f\nwhiteMode=%v randomize=%v\nisSlowed=%v\nnextRandzIn=%.1fs\nFPS=%.1f",
+		"[DEBUG]\nstarted=%v paused=%v\nwindows=%d imgs=%d\nspeed=%.1f baseSpeed=%.1f\nwhiteMode=%v bg=%s\nrandomize=%v slowed=%v\nnextRandzIn=%.1fs\nFPS=%.1f frames=%d",
 		ac.started, ac.paused,
-		len(ac.windows), assetCount,
+		len(ac.windows), len(ac.imgs),
 		ac.speed, ac.baseSpeed,
-		ac.whiteMode, ac.randomizeMode,
-		ac.isSlowed,
+		ac.whiteMode, ac.cfg.BackgroundType,
+		ac.randomizeMode, ac.isSlowed,
 		float64(ac.nextRandomizeTime-time.Now().UnixNano())/float64(time.Second),
 		ebiten.ActualFPS(),
+		ac.drawFrames,
 	)
 }
 
@@ -72,7 +74,6 @@ type Window struct {
 
 // NewAnimationCanvas creates a new animation canvas with the given configuration
 func NewAnimationCanvas(cfg *config.Config) *AnimationCanvas {
-	// Initialize random seed
 	rand.Seed(time.Now().UnixNano())
 
 	// Tint colors for dark background (bright colors)
@@ -117,23 +118,28 @@ func NewAnimationCanvas(cfg *config.Config) *AnimationCanvas {
 
 	// Load assets
 	if err := ac.loadAssets(); err != nil {
-		// In a real app, we might want to handle this better
-		// For now, we'll just panic - in production we'd show an error screen
+		log.Printf("[ERROR] Failed to load assets: %v", err)
 		panic("Failed to load assets: " + err.Error())
 	}
+	if len(ac.imgs) == 0 {
+		log.Printf("[ERROR] No PNG images found in ./png/ directory")
+		panic("No PNG images found in ./png/ directory — check working directory")
+	}
+	log.Printf("[INFO] NewAnimationCanvas: %d images loaded, %d windows, %dx%d, speed=%.1f",
+		len(ac.imgs), ac.windowsNum, cfg.Width, cfg.Height, cfg.Speed)
 
-	// Initialize windows (but don't start animation yet)
 	ac.windows = make([]*Window, 0, ac.windowsNum)
-
 	return ac
 }
 
 // loadAssets loads all PNG assets from the assets package
 func (ac *AnimationCanvas) loadAssets() error {
-	// Load PNG assets using our assets package
 	ebImages, err := assets.LoadPNGAssets(".")
 	if err != nil {
-		return err
+		return fmt.Errorf("asset glob error: %w", err)
+	}
+	if len(ebImages) == 0 {
+		return fmt.Errorf("no PNG files matched ./png/*.png")
 	}
 	ac.imgs = ebImages
 	return nil
@@ -151,6 +157,7 @@ func (ac *AnimationCanvas) Start() {
 	}
 	ac.nextRandomizeTime = time.Now().UnixNano() + time.Duration(rand.Float64()*ac.randomizeN*float64(time.Second)).Nanoseconds()
 	ac.lastUpdate = time.Now().UnixNano()
+	log.Printf("[INFO] Animation started: %d windows created", ac.windowsNum)
 }
 
 // Stop stops the animation
@@ -161,7 +168,6 @@ func (ac *AnimationCanvas) Stop() {
 // SetSpeed sets the animation speed
 func (ac *AnimationCanvas) SetSpeed(speed float64) {
 	ac.baseSpeed = speed
-	// Only apply directly to speed when not currently slowed
 	if ac.isSlowed && ac.randomizeMode {
 		ac.speed = speed / 5
 	} else {
@@ -173,12 +179,10 @@ func (ac *AnimationCanvas) SetSpeed(speed float64) {
 func (ac *AnimationCanvas) SetCount(count int) {
 	ac.windowsNum = count
 	if len(ac.windows) < ac.windowsNum {
-		// Need to add more windows
 		for i := len(ac.windows); i < ac.windowsNum; i++ {
 			ac.windows = append(ac.windows, NewWindow(ac.imgs, ac.tintColors, ac.darkTintColors, ac.cfg.Width, ac.cfg.Height))
 		}
 	} else if len(ac.windows) > ac.windowsNum {
-		// Need to remove windows
 		ac.windows = ac.windows[:ac.windowsNum]
 	}
 }
@@ -193,12 +197,10 @@ func (ac *AnimationCanvas) SetCanvasSize(width, height int) {
 func (ac *AnimationCanvas) SetRandomizeMode(enabled bool) {
 	ac.randomizeMode = enabled
 	if ac.randomizeMode {
-		// Start fresh: not slowed, schedule first event
 		ac.isSlowed = false
 		ac.speed = ac.baseSpeed
 		ac.nextRandomizeTime = time.Now().UnixNano() + time.Duration(rand.Float64()*ac.randomizeN*float64(time.Second)).Nanoseconds()
 	} else {
-		// Restore full speed when mode is turned off
 		ac.isSlowed = false
 		ac.speed = ac.baseSpeed
 	}
@@ -207,7 +209,6 @@ func (ac *AnimationCanvas) SetRandomizeMode(enabled bool) {
 // SetRandomizeN sets the maximum interval for randomize mode
 func (ac *AnimationCanvas) SetRandomizeN(n float64) {
 	ac.randomizeN = n
-	// Re-schedule so the new N takes effect immediately for the next tick
 	ac.nextRandomizeTime = time.Now().UnixNano() + time.Duration(rand.Float64()*ac.randomizeN*float64(time.Second)).Nanoseconds()
 }
 
@@ -231,16 +232,14 @@ func (ac *AnimationCanvas) Update() {
 	ac.lastUpdate = now
 
 	// Update randomize mode
-	if ac.randomizeMode && !ac.paused {
+	if ac.randomizeMode {
 		if now >= ac.nextRandomizeTime {
-			// Toggle slow/normal
 			ac.isSlowed = !ac.isSlowed
 			if ac.isSlowed {
 				ac.speed = ac.baseSpeed / 5
 			} else {
 				ac.speed = ac.baseSpeed
 			}
-			// Schedule next toggle at a new random interval within [0, N] seconds
 			ac.nextRandomizeTime = now + time.Duration(rand.Float64()*ac.randomizeN*float64(time.Second)).Nanoseconds()
 		}
 	}
@@ -258,30 +257,39 @@ func (ac *AnimationCanvas) Draw(screen *ebiten.Image) {
 	case "white":
 		screen.Fill(&color.RGBA{255, 255, 255, 255})
 	case "transparent":
-		screen.Fill(&color.RGBA{0, 0, 0, 0})
+		// Dark gray — true transparency requires compositor support
+		screen.Fill(&color.RGBA{30, 30, 30, 255})
 	default: // "black"
 		screen.Fill(&color.RGBA{0, 0, 0, 255})
 	}
 
 	if !ac.started {
-		// Draw "Set parameters and press Start" message
 		ebitenutil.DebugPrint(screen, "Set parameters and press Start")
 		return
 	}
+
+	ac.drawFrames++
 
 	// Draw all windows
 	for _, w := range ac.windows {
 		w.Draw(screen, ac.whiteMode, ac.cfg.Width, ac.cfg.Height)
 	}
 
+	// Show render info for first 120 frames (~2 seconds)
+	if ac.drawFrames <= 120 {
+		info := fmt.Sprintf("Rendering: %d windows, %d images, frame %d",
+			len(ac.windows), len(ac.imgs), ac.drawFrames)
+		ebitenutil.DebugPrintAt(screen, info, 10, ac.cfg.Height-30)
+	}
+
 	// Draw pause indicator if paused
 	if ac.paused {
-		ebitenutil.DebugPrintAt(screen, "PAUSED (P)", ac.cfg.Width-80, ac.cfg.Height-20)
+		ebitenutil.DebugPrintAt(screen, "PAUSED (P)", ac.cfg.Width-100, ac.cfg.Height-20)
 	}
 
 	// Draw randomize mode indicator if active and slowed
 	if ac.randomizeMode && ac.isSlowed && !ac.paused {
-		ebitenutil.DebugPrintAt(screen, "SLOW ×1/5", 10, ac.cfg.Height-20)
+		ebitenutil.DebugPrintAt(screen, "SLOW x1/5", 10, ac.cfg.Height-20)
 	}
 }
 
@@ -293,18 +301,22 @@ func NewWindow(imgs []*ebiten.Image, tintColors [][]int, darkTintColors [][]int,
 		width:          width,
 		height:         height,
 	}
-	w.Reset(imgs, tintColors, darkTintColors, width, height)
+	w.Reset(imgs, width, height)
 	return w
 }
 
 // Reset resets the window to a new random state
-func (w *Window) Reset(imgs []*ebiten.Image, tintColors [][]int, darkTintColors [][]int, width, height int) {
-	w.x = rand.Float64()*float64(-width) - rand.Float64()*float64(width)
-	w.y = rand.Float64()*float64(-height) - rand.Float64()*float64(height)
-	w.z = rand.Float64() * float64(width)
+func (w *Window) Reset(imgs []*ebiten.Image, width, height int) {
+	// z: depth from 1 (very close) to width/2 (far away)
+	w.z = rand.Float64()*float64(width)/2 + 1
 	w.pz = w.z
+	// Scale x/y with z so objects at every depth fill the full screen
+	fl := float64(width) / 2
+	scale := w.z / fl
+	w.x = (rand.Float64()*2 - 1) * fl * scale
+	w.y = (rand.Float64()*2 - 1) * float64(height) / 2 * scale
 	w.img = imgs[rand.Intn(len(imgs))]
-	w.colorIndex = rand.Intn(len(tintColors))
+	w.colorIndex = rand.Intn(len(w.tintColors))
 }
 
 // Update updates the window's position based on speed
@@ -312,21 +324,41 @@ func (w *Window) Update(speed float64) {
 	w.z -= speed
 
 	if w.z < 1 {
-		w.z = float64(w.width) / 2
-		w.x = rand.Float64()*float64(-w.width) - rand.Float64()*float64(w.width)
-		w.y = rand.Float64()*float64(-w.height) - rand.Float64()*float64(w.height)
+		w.z = float64(w.width)/2 + rand.Float64()*50
+		// Scale x/y with z so objects spawn spread across the full screen
+		fl := float64(w.width) / 2
+		scale := w.z / fl
+		w.x = (rand.Float64()*2 - 1) * fl * scale
+		w.y = (rand.Float64()*2 - 1) * float64(w.height) / 2 * scale
 		w.pz = w.z
 	}
 }
 
-// Draw draws the window to the screen
+// Draw draws the window to the screen using perspective projection
 func (w *Window) Draw(screen *ebiten.Image, whiteMode bool, screenWidth, screenHeight int) {
-	// Calculate 2D projection
-	sx := (w.x/w.z)*float64(screenWidth/2) + float64(screenWidth/2)
-	sy := (w.y/w.z)*float64(screenHeight/2) + float64(screenHeight/2)
+	if w.z < 0.5 {
+		return // safety: avoid division by near-zero
+	}
 
-	// Calculate size based on depth (closer = larger)
-	r := (w.z/float64(w.width/2))*22 + 4
+	// Perspective projection: objects farther away appear closer to center and smaller
+	fl := float64(screenWidth) / 2 // focal length
+	scale := fl / w.z
+
+	// Screen position (centered projection)
+	sx := w.x*scale + float64(screenWidth)/2
+	sy := w.y*scale + float64(screenHeight)/2
+
+	// Image size based on depth
+	targetSize := 64.0 * scale // base size 64px at scale=1
+	if targetSize < 2 {
+		return // too small to see
+	}
+
+	imgW := w.img.Bounds().Dx()
+	imgH := w.img.Bounds().Dy()
+	if imgW == 0 || imgH == 0 {
+		return
+	}
 
 	// Select color palette
 	var palette [][]int
@@ -335,19 +367,18 @@ func (w *Window) Draw(screen *ebiten.Image, whiteMode bool, screenWidth, screenH
 	} else {
 		palette = w.tintColors
 	}
-	color := palette[w.colorIndex]
+	clr := palette[w.colorIndex]
 
 	// Draw the image scaled and tinted
 	opts := &ebiten.DrawImageOptions{}
-	scaleX := r / float64(w.img.Bounds().Dx())
-	scaleY := r / float64(w.img.Bounds().Dy())
-	opts.GeoM.Scale(scaleX, scaleY)
-	opts.GeoM.Translate(sx-r/2, sy-r/2)
+	imgScale := targetSize / float64(imgW)
+	opts.GeoM.Scale(imgScale, imgScale)
+	opts.GeoM.Translate(sx-targetSize/2, sy-targetSize/2)
 
 	opts.ColorM.Scale(
-		float64(color[0])/255,
-		float64(color[1])/255,
-		float64(color[2])/255,
+		float64(clr[0])/255,
+		float64(clr[1])/255,
+		float64(clr[2])/255,
 		1,
 	)
 
