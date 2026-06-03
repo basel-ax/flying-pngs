@@ -11,11 +11,12 @@ import (
 	ebitenimg "github.com/hajimehoshi/ebiten/v2"
 )
 
-// LoadPNGAssets loads all PNG assets from the png/ directory relative to basePath
-// and converts them to Ebiten images. If loading fails for a file, that file is skipped.
-func LoadPNGAssets(basePath string) ([]*ebitenimg.Image, error) {
+// LoadPNGAssets loads all PNG assets from the collection/<collectionName>/ directory
+// relative to basePath and converts them to Ebiten images.
+// If loading fails for a file, that file is skipped.
+func LoadPNGAssets(basePath, collectionName string) ([]*ebitenimg.Image, error) {
 	var results []*ebitenimg.Image
-	pattern := filepath.Join(basePath, "png", "*.png")
+	pattern := filepath.Join(basePath, "collection", collectionName, "*.png")
 
 	files, err := filepath.Glob(pattern)
 	if err != nil {

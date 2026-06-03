@@ -122,8 +122,8 @@ func NewAnimationCanvas(cfg *config.Config) *AnimationCanvas {
 		panic("Failed to load assets: " + err.Error())
 	}
 	if len(ac.imgs) == 0 {
-		log.Printf("[ERROR] No PNG images found in ./png/ directory")
-		panic("No PNG images found in ./png/ directory — check working directory")
+		log.Printf("[ERROR] No PNG images found in ./collection/%s/ directory", cfg.Collection)
+		panic(fmt.Sprintf("No PNG images found in ./collection/%s/ directory — check working directory", cfg.Collection))
 	}
 	log.Printf("[INFO] NewAnimationCanvas: %d images loaded, %d windows, %dx%d, speed=%.1f",
 		len(ac.imgs), ac.windowsNum, cfg.Width, cfg.Height, cfg.Speed)
@@ -134,12 +134,12 @@ func NewAnimationCanvas(cfg *config.Config) *AnimationCanvas {
 
 // loadAssets loads all PNG assets from the assets package
 func (ac *AnimationCanvas) loadAssets() error {
-	ebImages, err := assets.LoadPNGAssets(".")
+	ebImages, err := assets.LoadPNGAssets(".", ac.cfg.Collection)
 	if err != nil {
 		return fmt.Errorf("asset glob error: %w", err)
 	}
 	if len(ebImages) == 0 {
-		return fmt.Errorf("no PNG files matched ./png/*.png")
+		return fmt.Errorf("no PNG files matched ./collection/%s/*.png", ac.cfg.Collection)
 	}
 	ac.imgs = ebImages
 	return nil

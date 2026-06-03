@@ -32,6 +32,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.AutoLoadLast != true {
 		t.Errorf("Expected AutoLoadLast=true, got %v", cfg.AutoLoadLast)
 	}
+	// Collection default depends on what's available in ./collection/
+	// Just ensure it doesn't panic
+	_ = cfg.Collection
 }
 
 // TestLoadDefaultConfig tests loading configuration when no file exists
@@ -71,6 +74,7 @@ func TestSaveAndLoadConfig(t *testing.T) {
 		RandomizeMode:  true,
 		RandomizeMaxN:  30,
 		AutoLoadLast:   false,
+		Collection:     "symbol",
 	}
 
 	// Save the config
@@ -108,6 +112,9 @@ func TestSaveAndLoadConfig(t *testing.T) {
 	}
 	if loadedCfg.AutoLoadLast != cfg.AutoLoadLast {
 		t.Errorf("Expected AutoLoadLast=%v, got %v", cfg.AutoLoadLast, loadedCfg.AutoLoadLast)
+	}
+	if loadedCfg.Collection != cfg.Collection {
+		t.Errorf("Expected Collection=%s, got %s", cfg.Collection, loadedCfg.Collection)
 	}
 }
 
