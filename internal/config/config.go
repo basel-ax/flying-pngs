@@ -185,27 +185,32 @@ func validateAndClamp(cfg *Config) error {
 }
 
 // DiscoverCollections scans the collection/ directory for subdirectories
-// and returns their names sorted alphabetically.
+// that contain at least one PNG file and returns their names sorted alphabetically.
 func DiscoverCollections() []string {
-	return discoverCollectionsIn("collection")
+	return discoverCollectionsIn("collection", "*.png")
 }
 
 // DiscoverSvgCollections scans the svg_collection/ directory for subdirectories
-// and returns their names sorted alphabetically.
+// that contain at least one SVG file and returns their names sorted alphabetically.
 func DiscoverSvgCollections() []string {
-	return discoverCollectionsIn("svg_collection")
+	return discoverCollectionsIn("svg_collection", "*.svg")
 }
 
-// discoverCollectionsIn scans a directory for subdirectories
-func discoverCollectionsIn(dir string) []string {
-	collectionDir := filepath.Join(projectRoot(), dir)
-	entries, err := os.ReadDir(collectionDir)
+// discoverCollectionsIn scans a directory for subdirectories that contain
+// at least one file matching the given glob pattern (e.g. "*.png", "*.svg").
+func discoverCollectionsIn(dir, filePattern string) []string {
+	baseDir := filepath.Join(projectRoot(), dir)
+	entries, err := os.ReadDir(baseDir)
 	if err != nil {
 		return nil
 	}
 	var names []string
 	for _, e := range entries {
-		if e.IsDir() {
+		if !e.IsDir() {
+			continue
+		}
+		matches, _ := filepath.Glob(filepath.Join(baseDir, e.Name(), filePattern))
+		if len(matches) > 0 {
 			names = append(names, e.Name())
 		}
 	}

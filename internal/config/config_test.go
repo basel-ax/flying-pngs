@@ -74,7 +74,7 @@ func TestSaveAndLoadConfig(t *testing.T) {
 		RandomizeMode:  true,
 		RandomizeMaxN:  30,
 		AutoLoadLast:   false,
-		Collection:     "symbol",
+		Collection:     "abrand",
 		Format:         "svg",
 		ImageSize:      128.0,
 	}
